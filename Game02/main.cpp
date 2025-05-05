@@ -62,7 +62,7 @@ void drawSnake(SDL_Renderer* renderer, const Point& currentDirection) {
         destRect.x = body[0].x;
         destRect.y = body[0].y;
 
-        // <<< THÊM VÀO: Tính toán góc xoay >>>
+
         double angle = 0.0; // Mặc định là 0 độ (hướng lên)
         if (currentDirection.x > 0) {        // Đi sang phải (RECT_SIZE, 0)
             angle = 90.0;
@@ -325,7 +325,7 @@ int main (int argc, char* argv[]) {
     SDL_Renderer* renderer = createRenderer(window,SCREEN_WIDTH, SCREEN_HEIGHT);
     TTF_Font* font = loadFont("timesbd.ttf", 50);
 
-    Mix_Music *gMusic = loadMusic("assets\\RunningAway.mp3");
+    Mix_Music *gMusic = loadMusic("music.wav");
     play(gMusic);
 
     CoreGame(renderer, window,font,gMusic); // Chạy vòng lặp game

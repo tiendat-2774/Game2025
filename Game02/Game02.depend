@@ -58,3 +58,48 @@
 	<vector>
 	<string>
 
+1744473003 source:c:\users\admin\onedrive\documents\game2025\game02\sdl-mix.cpp
+	<iostream>
+	<SDL.h>
+	<SDL_mixer.h>
+	"SDL-Mix.h"
+	<vector>
+	<string>
+
+1744472964 c:\users\admin\onedrive\documents\game2025\game02\sdl-mix.h
+	<iostream>
+	<SDL.h>
+	<SDL_mixer.h>
+	<vector>
+	<string>
+
+1744459532 source:c:\users\admin\onedrive\documents\game2025\game02\sdl_text.cpp
+	<iostream>
+	<SDL.h>
+	<SDL_ttf.h>
+	"SDL_text.h"
+	<vector>
+	<string>
+
+1744459327 c:\users\admin\onedrive\documents\game2025\game02\sdl_text.h
+	<iostream>
+	<SDL.h>
+	<SDL_ttf.h>
+	<vector>
+	<string>
+
+1744457818 source:c:\users\admin\onedrive\documents\game2025\game02\sdl_utils.cpp
+	<SDL.h>
+	<SDL_image.h>
+	<iostream>
+	"SDL_utils.h"
+	<vector>
+	<string>
+	<SDL_ttf.h>
+
+1744475414 c:\users\admin\onedrive\documents\game2025\game02\sdl_utils.h
+	<SDL.h>
+	<SDL_image.h>
+	<iostream>
+	<SDL_ttf.h>
+
