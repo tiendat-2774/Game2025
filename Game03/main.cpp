@@ -19,223 +19,212 @@ const int SCREEN_HEIGHT = 800;
 const int RECT_SIZE     = 20;
 const char* WINDOW_TITLE = "Snake Game";
 
+enum { MENU_CLASSIC = 1, MENU_TWOLAYER, MENU_QUIT };
+
+struct Point { int x, y; bool operator==(const Point& o) const { return x == o.x && y == o.y; } };
+
+// Global textures
 SDL_Texture* gHeadTexture       = nullptr;
 SDL_Texture* gBodyTexture       = nullptr;
 SDL_Texture* gFoodTexture       = nullptr;
 SDL_Texture* gFakeTexture       = nullptr;
 SDL_Texture* gBackgroundTexture = nullptr;
 
-struct Point {
-    int x, y;
-    bool operator==(const Point& other) const { return x == other.x && y == other.y; }
-};
+// Function prototypes
+void QuitSDL(SDL_Window* window, SDL_Renderer* renderer);
+bool CheckInit(SDL_Window* w, SDL_Renderer* r);
+int ShowMenu(SDL_Renderer* ren, TTF_Font* font);
+void CoreGame(SDL_Renderer* ren, SDL_Window* win, TTF_Font* font, int mode);
 
-// Menu return values
-enum { MENU_CLASSIC = 1, MENU_TWOLAYER, MENU_QUIT };
+int main(int argc, char* argv[]) {
+    srand((unsigned)time(nullptr));
+    if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO) != 0) {
+        cerr << "SDL_Init Error: " << SDL_GetError() << endl;
+        return 1;
+    }
+    if (!(IMG_Init(IMG_INIT_PNG) & IMG_INIT_PNG)) {
+        cerr << "IMG_Init Error: " << IMG_GetError() << endl;
+        SDL_Quit();
+        return 1;
+    }
+    if (Mix_Init(MIX_INIT_OGG) != MIX_INIT_OGG) {
+        cerr << "Mix_Init Error: " << Mix_GetError() << endl;
+        IMG_Quit(); SDL_Quit();
+        return 1;
+    }
+    if (TTF_Init() != 0) {
+        cerr << "TTF_Init Error: " << TTF_GetError() << endl;
+        Mix_Quit(); IMG_Quit(); SDL_Quit();
+        return 1;
+    }
 
-void quitSDL(SDL_Window* window, SDL_Renderer* renderer) {
+    SDL_Window* win = SDL_CreateWindow(WINDOW_TITLE,
+        SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
+        SCREEN_WIDTH, SCREEN_HEIGHT, SDL_WINDOW_SHOWN);
+    SDL_Renderer* ren = SDL_CreateRenderer(win, -1,
+        SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
+    if (!CheckInit(win, ren)) return 1;
+
+    TTF_Font* font = TTF_OpenFont("times.ttf", 24);
+    if (!font) {
+        cerr << "TTF_OpenFont Error: " << TTF_GetError() << endl;
+        QuitSDL(win, ren);
+        return 1;
+    }
+
+    gBackgroundTexture = loadTexture("background.jpg", ren);
+    if (!gBackgroundTexture) {
+        SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Error", "Failed loading background.jpg", win);
+        QuitSDL(win, ren);
+        return 1;
+    }
+
+    int mode;
+    while ((mode = ShowMenu(ren, font)) != MENU_QUIT) {
+        CoreGame(ren, win, font, mode);
+    }
+
+    QuitSDL(win, ren);
+    return 0;
+}
+
+void QuitSDL(SDL_Window* window, SDL_Renderer* renderer) {
     if (gHeadTexture)       SDL_DestroyTexture(gHeadTexture);
     if (gBodyTexture)       SDL_DestroyTexture(gBodyTexture);
     if (gFoodTexture)       SDL_DestroyTexture(gFoodTexture);
     if (gFakeTexture)       SDL_DestroyTexture(gFakeTexture);
     if (gBackgroundTexture) SDL_DestroyTexture(gBackgroundTexture);
-    SDL_DestroyRenderer(renderer);
-    SDL_DestroyWindow(window);
+    if (renderer) SDL_DestroyRenderer(renderer);
+    if (window)   SDL_DestroyWindow(window);
     Mix_Quit(); IMG_Quit(); TTF_Quit(); SDL_Quit();
+}
+
+bool CheckInit(SDL_Window* w, SDL_Renderer* r) {
+    if (!w) {
+        cerr << "SDL_CreateWindow Error: " << SDL_GetError() << endl;
+        return false;
+    }
+    if (!r) {
+        cerr << "SDL_CreateRenderer Error: " << SDL_GetError() << endl;
+        SDL_DestroyWindow(w);
+        return false;
+    }
+    return true;
 }
 
 int ShowMenu(SDL_Renderer* ren, TTF_Font* font) {
     vector<string> options = { "Classic Mode", "Two-Layer Mode", "Quit" };
     int selected = 0;
     SDL_Event e;
+    // Pre-render texts
+    vector<SDL_Texture*> texts(options.size());
+    vector<SDL_Rect> rects(options.size());
+    while (SDL_PollEvent(&e)); // clear input
+    for (size_t i = 0; i < options.size(); ++i) {
+        texts[i] = renderText(options[i].c_str(), font, {255,255,255}, ren);
+        SDL_QueryTexture(texts[i], nullptr, nullptr, &rects[i].w, &rects[i].h);
+        rects[i].x = (SCREEN_WIDTH - rects[i].w) / 2;
+        rects[i].y = 300 + int(i) * 60;
+    }
     while (true) {
+        while (SDL_PollEvent(&e)) {
+            if (e.type == SDL_QUIT) {
+                return MENU_QUIT;
+            }
+            if (e.type == SDL_KEYDOWN) {
+                if (e.key.keysym.sym == SDLK_UP || e.key.keysym.sym == SDLK_w)
+                    selected = (selected - 1 + options.size()) % options.size();
+                else if (e.key.keysym.sym == SDLK_DOWN || e.key.keysym.sym == SDLK_s)
+                    selected = (selected + 1) % options.size();
+                else if (e.key.keysym.sym == SDLK_RETURN || e.key.keysym.sym == SDLK_KP_ENTER)
+                    return selected + 1;
+            }
+        }
         SDL_SetRenderDrawColor(ren, 0, 0, 0, 255);
         SDL_RenderClear(ren);
         if (gBackgroundTexture) SDL_RenderCopy(ren, gBackgroundTexture, nullptr, nullptr);
-        for (int i = 0; i < (int)options.size(); ++i) {
-            SDL_Color color = (i == selected) ? SDL_Color{255, 0, 0} : SDL_Color{255, 255, 255};
-            SDL_Texture* txt = renderText(options[i].c_str(), font, color, ren);
-            int w, h;
-            SDL_QueryTexture(txt, nullptr, nullptr, &w, &h);
-            renderTexture(txt, (SCREEN_WIDTH - w) / 2, 300 + i * 60, ren);
-            SDL_DestroyTexture(txt);
+        for (size_t i = 0; i < options.size(); ++i) {
+            SDL_DestroyTexture(texts[i]);
+            SDL_Color col = (i == selected) ? SDL_Color{255,0,0} : SDL_Color{255,255,255};
+            texts[i] = renderText(options[i].c_str(), font, col, ren);
+            SDL_QueryTexture(texts[i], nullptr, nullptr, &rects[i].w, &rects[i].h);
+            rects[i].x = (SCREEN_WIDTH - rects[i].w) / 2;
+            SDL_RenderCopy(ren, texts[i], nullptr, &rects[i]);
         }
         SDL_RenderPresent(ren);
-        while (SDL_PollEvent(&e)) {
-            if (e.type == SDL_QUIT) return MENU_QUIT;
-            if (e.type == SDL_KEYDOWN) {
-                if (e.key.keysym.sym == SDLK_UP) selected = (selected - 1 + options.size()) % options.size();
-                else if (e.key.keysym.sym == SDLK_DOWN) selected = (selected + 1) % options.size();
-                else if (e.key.keysym.sym == SDLK_RETURN) return selected + 1;
-            }
-        }
-        SDL_Delay(100);
-    }
-}
-
-int ShowPauseMenu(SDL_Renderer* ren, TTF_Font* font) {
-    vector<string> options = { "Resume", "Main Menu" };
-    int selected = 0;
-    SDL_Event e;
-    while (true) {
-        SDL_SetRenderDrawColor(ren, 0, 0, 0, 200);
-        SDL_RenderClear(ren);
-        if (gBackgroundTexture) SDL_RenderCopy(ren, gBackgroundTexture, nullptr, nullptr);
-        for (int i = 0; i < (int)options.size(); ++i) {
-            SDL_Color color = (i == selected) ? SDL_Color{255, 0, 0} : SDL_Color{255, 255, 255};
-            SDL_Texture* txt = renderText(options[i].c_str(), font, color, ren);
-            int w, h;
-            SDL_QueryTexture(txt, nullptr, nullptr, &w, &h);
-            renderTexture(txt, (SCREEN_WIDTH - w) / 2, 300 + i * 60, ren);
-            SDL_DestroyTexture(txt);
-        }
-        SDL_RenderPresent(ren);
-        while (SDL_PollEvent(&e)) {
-            if (e.type == SDL_QUIT) return 1;
-            if (e.type == SDL_KEYDOWN) {
-                if (e.key.keysym.sym == SDLK_UP) selected = (selected - 1 + options.size()) % options.size();
-                else if (e.key.keysym.sym == SDLK_DOWN) selected = (selected + 1) % options.size();
-                else if (e.key.keysym.sym == SDLK_RETURN) return selected;
-            }
-        }
-        SDL_Delay(100);
+        SDL_Delay(16);
     }
 }
 
 void CoreGame(SDL_Renderer* ren, SDL_Window* win, TTF_Font* font, int mode) {
     bool isClassic = (mode == MENU_CLASSIC);
-    gHeadTexture       = loadTexture("head.png", ren);
-    gBodyTexture       = loadTexture("body.png", ren);
-    gFoodTexture       = loadTexture("food.png", ren);
-    gFakeTexture       = loadTexture("fake.png", ren);
-    gBackgroundTexture = loadTexture("background.jpg", ren);
-    if (!gHeadTexture || !gBodyTexture || !gFoodTexture || !gFakeTexture) {
+    // Load textures
+    gHeadTexture = loadTexture("head.png", ren);
+    gBodyTexture = loadTexture("body.png", ren);
+    gFoodTexture = loadTexture("food.png", ren);
+    gFakeTexture = loadTexture("fake.png", ren);
+    if (!gHeadTexture || !gBodyTexture || !gFoodTexture || (!isClassic && !gFakeTexture)) {
         SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Error", "Missing textures.", win);
         return;
     }
-
-    srand((unsigned)time(nullptr));
-    vector<Point> body;
-    Point dir = {RECT_SIZE, 0}, nextDir = dir;
-    Uint32 lastMove = SDL_GetTicks();
-    const Uint32 moveInterval = 150;
-    const Uint32 frameDelay   = 1000 / 60;
-    bool quit = false, gameOver = false, paused = false;
+    vector<Point> snake;
+    snake.push_back({SCREEN_WIDTH/2/RECT_SIZE*RECT_SIZE, SCREEN_HEIGHT/2/RECT_SIZE*RECT_SIZE});
+    Point dir = {RECT_SIZE,0}, nextDir = dir;
+    Point food, fake;
+    bool fakeActive = !isClassic, fakeEaten = false;
+    auto placeFood = [&]() {
+        do { food.x = (rand()%(SCREEN_WIDTH/RECT_SIZE))*RECT_SIZE;
+             food.y = (rand()%(SCREEN_HEIGHT/RECT_SIZE))*RECT_SIZE;
+        } while (find(snake.begin(), snake.end(), food) != snake.end());
+    };
+    auto placeFake = [&]() {
+        do { fake.x = (rand()%(SCREEN_WIDTH/RECT_SIZE))*RECT_SIZE;
+             fake.y = (rand()%(SCREEN_HEIGHT/RECT_SIZE))*RECT_SIZE;
+        } while (find(snake.begin(), snake.end(), fake) != snake.end() || fake == food);
+    };
+    placeFood(); if (fakeActive) placeFake();
+    Uint32 lastMove = SDL_GetTicks(), interval = 150;
+    bool running = true, paused = false;
     SDL_Event e;
-
-    Point realFood, fakeFood;
-    bool fakeConverted = false;
-
-    auto genReal = [&]() {
-        do { realFood.x = (rand() % (SCREEN_WIDTH / RECT_SIZE)) * RECT_SIZE;
-             realFood.y = (rand() % (SCREEN_HEIGHT / RECT_SIZE)) * RECT_SIZE;
-        } while (find(body.begin(), body.end(), realFood) != body.end());
-    };
-    auto genFake = [&]() {
-        do { fakeFood.x = (rand() % (SCREEN_WIDTH / RECT_SIZE)) * RECT_SIZE;
-             fakeFood.y = (rand() % (SCREEN_HEIGHT / RECT_SIZE)) * RECT_SIZE;
-        } while (isClassic || find(body.begin(), body.end(), fakeFood) != body.end() || fakeFood == realFood);
-    };
-
-    // Initialize
-    body.push_back({SCREEN_WIDTH/2/RECT_SIZE*RECT_SIZE, SCREEN_HEIGHT/2/RECT_SIZE*RECT_SIZE});
-    genReal(); genFake();
-
-    while (!quit && !gameOver) {
-        Uint32 frameStart = SDL_GetTicks();
+    while (running) {
         while (SDL_PollEvent(&e)) {
-            if (e.type == SDL_QUIT) quit = true;
-            else if (e.type == SDL_KEYDOWN) {
+            if (e.type == SDL_QUIT) { running = false; break; }
+            if (e.type == SDL_KEYDOWN) {
                 if (e.key.keysym.sym == SDLK_ESCAPE) paused = true;
                 if (!paused) {
-                    if ((e.key.keysym.sym == SDLK_w || e.key.keysym.sym == SDLK_UP) && dir.y == 0) nextDir = {0,-RECT_SIZE};
-                    if ((e.key.keysym.sym == SDLK_s || e.key.keysym.sym == SDLK_DOWN) && dir.y == 0) nextDir = {0,RECT_SIZE};
-                    if ((e.key.keysym.sym == SDLK_a || e.key.keysym.sym == SDLK_LEFT) && dir.x == 0) nextDir = {-RECT_SIZE,0};
-                    if ((e.key.keysym.sym == SDLK_d || e.key.keysym.sym == SDLK_RIGHT) && dir.x == 0) nextDir = {RECT_SIZE,0};
+                    if ((e.key.keysym.sym == SDLK_UP || e.key.keysym.sym == SDLK_w) && dir.y==0) nextDir={0,-RECT_SIZE};
+                    else if ((e.key.keysym.sym == SDLK_DOWN || e.key.keysym.sym == SDLK_s) && dir.y==0) nextDir={0,RECT_SIZE};
+                    else if ((e.key.keysym.sym == SDLK_LEFT || e.key.keysym.sym == SDLK_a) && dir.x==0) nextDir={-RECT_SIZE,0};
+                    else if ((e.key.keysym.sym == SDLK_RIGHT || e.key.keysym.sym == SDLK_d) && dir.x==0) nextDir={RECT_SIZE,0};
                 }
             }
         }
         if (paused) {
-            int choice = ShowPauseMenu(ren, font);
-            if (choice == 0) paused = false;
-            else return;
-            continue;
+            int sel = ShowMenu(ren, font);
+            if (sel == MENU_CLASSIC) paused=false;
+            else break;
         }
         Uint32 now = SDL_GetTicks();
-        if (now - lastMove >= moveInterval) {
-            lastMove = now;
-            dir = nextDir;
-            Point head = body.front();
-            Point nh = {head.x + dir.x, head.y + dir.y};
-            if (nh.x < 0 || nh.x >= SCREEN_WIDTH || nh.y < 0 || nh.y >= SCREEN_HEIGHT) gameOver = true;
-            else if (find(body.begin()+1, body.end(), nh) != body.end()) gameOver = true;
-            if (!gameOver) {
-                body.insert(body.begin(), nh);
-                if (isClassic) {
-                    if (nh == realFood) genReal();
-                    else body.pop_back();
-                } else {
-                    if (!fakeConverted && nh == fakeFood) {
-                        // first fake eat: convert
-                        realFood = fakeFood;
-                        fakeConverted = true;
-                        body.pop_back();
-                        continue;
-                    } else if (fakeConverted && nh == fakeFood) {
-                        // second fake eat: treat as real
-                        genReal(); genFake(); fakeConverted = false;
-                        continue;
-                    } else if (nh == realFood) {
-                        genReal(); genFake(); fakeConverted = false;
-                        continue;
-                    } else {
-                        body.pop_back();
-                    }
-                }
-            }
+        if (now - lastMove >= interval) {
+            lastMove = now; dir = nextDir;
+            Point head = { (snake.front().x + dir.x + SCREEN_WIDTH)%SCREEN_WIDTH,
+                           (snake.front().y + dir.y + SCREEN_HEIGHT)%SCREEN_HEIGHT };
+            if (find(snake.begin(), snake.end(), head) != snake.end()) break;
+            snake.insert(snake.begin(), head);
+            if (head == food) { placeFood(); if (fakeActive && fakeEaten) placeFake(); }
+            else if (fakeActive && head == fake) { fakeEaten = true; }
+            else snake.pop_back();
         }
-        // Render
-        SDL_SetRenderDrawColor(ren,0,0,0,255); SDL_RenderClear(ren);
-        if (gBackgroundTexture) SDL_RenderCopy(ren,gBackgroundTexture,nullptr,nullptr);
-        if (!isClassic) {
-            SDL_Rect rf = {fakeFood.x,fakeFood.y,RECT_SIZE,RECT_SIZE};
-            SDL_RenderCopy(ren, fakeConverted? gFoodTexture : gFakeTexture, nullptr, &rf);
-        }
-        SDL_Rect rr = {realFood.x,realFood.y,RECT_SIZE,RECT_SIZE}; SDL_RenderCopy(ren,gFoodTexture,nullptr,&rr);
-        SDL_Rect rs = {0,0,RECT_SIZE,RECT_SIZE}; rs.x=body[0].x; rs.y=body[0].y;
-        double ang=0; if (dir.x>0) ang=90; else if (dir.x<0) ang=270; else if (dir.y>0) ang=180;
-        SDL_RenderCopyEx(ren,gHeadTexture,nullptr,&rs,ang,nullptr,SDL_FLIP_NONE);
-        for (size_t i=1;i<body.size();++i) { rs.x=body[i].x; rs.y=body[i].y; SDL_RenderCopy(ren,gBodyTexture,nullptr,&rs); }
-        int score = (int)body.size() - 1;
-        SDL_Texture* st = renderText((string("Score: ")+to_string(score)).c_str(), font, SDL_Color{255,0,0}, ren);
-        renderTexture(st,10,10,ren); SDL_DestroyTexture(st);
-        SDL_RenderPresent(ren);
-        Uint32 frameTime = SDL_GetTicks() - frameStart; if(frameDelay > frameTime) SDL_Delay(frameDelay - frameTime);
+        SDL_SetRenderDrawColor(ren,0,0,0,255);
+        SDL_RenderClear(ren);
+        SDL_RenderCopy(ren,gBackgroundTexture,nullptr,nullptr);
+        SDL_Rect rf={food.x,food.y,RECT_SIZE,RECT_SIZE}; SDL_RenderCopy(ren,gFoodTexture,nullptr,&rf);
+        if(fakeActive && !fakeEaten){ SDL_Rect rfa={fake.x,fake.y,RECT_SIZE,RECT_SIZE}; SDL_RenderCopy(ren,gFakeTexture,nullptr,&rfa);}
+        for(size_t i=0;i<snake.size();++i){ SDL_Rect rs={snake[i].x,snake[i].y,RECT_SIZE,RECT_SIZE}; SDL_RenderCopy(ren, i==0?gHeadTexture:gBodyTexture,nullptr,&rs);}
+        SDL_RenderPresent(ren); SDL_Delay(16);
     }
-    if (gameOver) {
-        SDL_SetRenderDrawColor(ren,0,0,0,255); SDL_RenderClear(ren);
-        if (gBackgroundTexture) SDL_RenderCopy(ren,gBackgroundTexture,nullptr,nullptr);
-        SDL_Texture* go = renderText("Game Over",font,SDL_Color{255,0,0},ren);
-        renderTexture(go,180,375,ren); SDL_DestroyTexture(go);
-        SDL_RenderPresent(ren); SDL_Delay(1000);
-    }
+    SDL_DestroyTexture(gHeadTexture);
+    SDL_DestroyTexture(gBodyTexture);
+    SDL_DestroyTexture(gFoodTexture);
+    if(fakeActive) SDL_DestroyTexture(gFakeTexture);
 }
-
-int main(int argc,char*argv[]) {
-    SDL_Window* win = initSDL(SCREEN_WIDTH,SCREEN_HEIGHT,WINDOW_TITLE);
-    SDL_Renderer* ren = createRenderer(win,SCREEN_WIDTH,SCREEN_HEIGHT);
-    TTF_Font* font = loadFont("timesbd.ttf",50);
-    Mix_OpenAudio(44100,MIX_DEFAULT_FORMAT,2,2048);
-    Mix_Music* mus = Mix_LoadMUS("assets/RunningAway.mp3"); if(mus) Mix_PlayMusic(mus,-1);
-    while (true) {
-        int choice = ShowMenu(ren,font);
-        if (choice == MENU_QUIT) break;
-        CoreGame(ren,win,font,choice);
-    }
-    if (mus) Mix_FreeMusic(mus);
-    Mix_CloseAudio();
-    quitSDL(win,ren);
-    return 0;
-}
-
-
