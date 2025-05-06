@@ -59,3 +59,63 @@
 	"SDL-Mix.h"
 	"SDL_text.h"
 
+1746524411 source:c:\users\admin\onedrive\documents\game2025\src\main.cpp
+	<SDL.h>
+	<SDL_image.h>
+	<SDL_mixer.h>
+	<SDL_ttf.h>
+	<iostream>
+	<vector>
+	<string>
+	<cstdlib>
+	<ctime>
+	"SDL_utils.h"
+	"SDL-Mix.h"
+	"SDL_text.h"
+
+1744520758 c:\users\admin\onedrive\documents\game2025\src\sdl_utils.h
+	<SDL.h>
+	<SDL_image.h>
+	<iostream>
+	<SDL_ttf.h>
+
+1744522638 c:\users\admin\onedrive\documents\game2025\src\sdl-mix.h
+	<iostream>
+	<SDL.h>
+	<SDL_mixer.h>
+	<vector>
+	<string>
+
+1744518639 c:\users\admin\onedrive\documents\game2025\src\sdl_text.h
+	<iostream>
+	<SDL.h>
+	<SDL_ttf.h>
+	<vector>
+	<string>
+
+1744522638 source:c:\users\admin\onedrive\documents\game2025\src\sdl-mix.cpp
+	<iostream>
+	<SDL.h>
+	<SDL_mixer.h>
+	"SDL-Mix.h"
+	<vector>
+	<string>
+
+1744518641 source:c:\users\admin\onedrive\documents\game2025\src\sdl_text.cpp
+	<iostream>
+	<SDL.h>
+	<SDL_ttf.h>
+	"SDL_text.h"
+	<vector>
+	<string>
+
+1744522958 source:c:\users\admin\onedrive\documents\game2025\src\sdl_utils.cpp
+	<SDL.h>
+	<SDL_image.h>
+	<iostream>
+	"SDL_utils.h"
+	<vector>
+	<string>
+	<SDL_ttf.h>
+	<SDL_mixer.h>
+

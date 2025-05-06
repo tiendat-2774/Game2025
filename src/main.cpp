@@ -80,7 +80,7 @@ int ShowMenu(SDL_Renderer* renderer, TTF_Font* font) {
                 }
             }
         }
-        SDL_Delay(100);
+        //SDL_Delay(100);
     }
 }
 
